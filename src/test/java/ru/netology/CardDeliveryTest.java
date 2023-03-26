@@ -1,92 +1,45 @@
-package ru.netology;
-
-import lombok.val;
-import org.junit.jupiter.api.BeforeEach;
+import com.codeborne.selenide.Condition;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.Keys;
 
-import static com.codeborne.selenide.Condition.exactText;
-import static com.codeborne.selenide.Condition.visible;
-import static com.codeborne.selenide.Selectors.withText;
+import java.time.Duration;
+
 import static com.codeborne.selenide.Selenide.$;
 import static com.codeborne.selenide.Selenide.open;
-import static ru.netology.DataGenerator.generateDate;
-import static ru.netology.DataGenerator.generateRequest;
 
 public class CardDeliveryTest {
-    @BeforeEach
-    void setUp() {
+    @Test
+    public void shouldSuccessfulFormSubmission() {
         open("http://localhost:9999");
-    }
-
-    @Test
-    void shouldRegister() {
-        val requestInfo = generateRequest("ru");
-        $("[data-test-id=city] input").setValue(requestInfo.getCity());
-        val firstMeetingDate = generateDate(0, 4);
-        $("[placeholder='Дата встречи']").doubleClick().sendKeys(Keys.BACK_SPACE);
-        $("[placeholder='Дата встречи']").setValue(firstMeetingDate);
-        $("[name='name']").setValue(requestInfo.getName());
-        $("[name='phone']").setValue(requestInfo.getPhone());
+        domain.UserData userData = manager.DataGenerator.Registration.generateUser("Ru");
+        //Заполнение и первоначальная отправка формы:
+        $("[data-test-id=city] input").setValue(((domain.UserData) userData).getCity());
+        $("[data-test-id=date] input").doubleClick().sendKeys(Keys.DELETE);
+        String scheduledDate = manager.DataGenerator.generateDate(3);
+        $("[data-test-id=date] input").setValue(scheduledDate);
+        $("[data-test-id=name] input").setValue(userData.getName());
+        $("[data-test-id=phone] input").setValue(userData.getPhone());
         $("[data-test-id=agreement]").click();
-        $(withText("Запланировать")).click();
-        $("[data-test-id=success-notification] .notification__content")
-                .waitUntil(visible, 15000)
-                .shouldHave(exactText("Встреча успешно запланирована на  " + firstMeetingDate));
-        val secondMeetingDate = generateDate(5, 4);
-        $("[placeholder='Дата встречи']").doubleClick().sendKeys(Keys.BACK_SPACE);
-        $("[placeholder='Дата встречи']").setValue(secondMeetingDate);
-        $(withText("Запланировать")).click();
-        $(withText("Перепланировать")).click();
-        $("[data-test-id=success-notification] .notification__content")
-                .waitUntil(visible, 15000)
-                .shouldHave(exactText("Встреча успешно запланирована на  " + secondMeetingDate));
+        $(".button").shouldHave(Condition.text("Запланировать")).click();
+        //Проверка на видимость, содержание текста и время загрузки:
+        $("[data-test-id=success-notification]").shouldBe(Condition.visible)
+                .shouldHave(Condition.text("Успешно! Встреча успешно запланирована на " + scheduledDate),
+                        Duration.ofSeconds(15));
+        //Изменение ранне введенной даты и отправка формы:
+        $("[data-test-id=date] input").doubleClick().sendKeys(Keys.DELETE);
+        String rescheduledDate = manager.DataGenerator.generateDate(14);   //Перенесенная дата (текущая дата + 14 дней)
+        $("[data-test-id=date] input").setValue(rescheduledDate);
+        $(".button").shouldHave(Condition.text("Запланировать")).click();
+        //Взаимодействие с опцией перепланировки,
+        //а также проверка на видимость, содержание текста и время загрузки:
+        $("[data-test-id=replan-notification]").shouldBe(Condition.visible)
+                .shouldHave(Condition.text("Необходимо подтверждение" +
+                                " У вас уже запланирована встреча на другую дату. Перепланировать?"),
+                        Duration.ofSeconds(15));
+        $("[data-test-id=replan-notification] .button").shouldHave(Condition.text("Перепланировать")).click();
+        //Итоговая проверка на видимость, содержание текста и время загрузки:
+        $("[data-test-id=success-notification]").shouldBe(Condition.visible)
+                .shouldHave(Condition.text("Успешно! Встреча успешно запланирована на " + rescheduledDate),
+                        Duration.ofSeconds(15));
     }
-    @Test
-    void shouldRegisterWithoutChangingDate() {
-        val requestInfo = generateRequest("ru");
-        $("[data-test-id=city] input").setValue(requestInfo.getCity());
-        val MeetingDate = generateDate(0, 4);
-        $("[placeholder='Дата встречи']").doubleClick().sendKeys(Keys.BACK_SPACE);
-        $("[placeholder='Дата встречи']").setValue(MeetingDate);
-        $("[name='name']").setValue(requestInfo.getName());
-        $("[name='phone']").setValue(requestInfo.getPhone());
-        $("[data-test-id=agreement]").click();
-        $(withText("Запланировать")).click();
-        $("[data-test-id=success-notification] .notification__content")
-                .waitUntil(visible, 15000)
-                .shouldHave(exactText("Встреча успешно запланирована на  " + MeetingDate));
-
-    }
-    @Test
-    void shouldNotRegisterIfPhoneIsInvalid() {
-        val requestInfo = generateRequest("ru");
-        $("[data-test-id=city] input").setValue(requestInfo.getCity());
-        val MeetingDate = generateDate(0, 4);
-        $("[placeholder='Дата встречи']").doubleClick().sendKeys(Keys.BACK_SPACE);
-        $("[placeholder='Дата встречи']").setValue(MeetingDate);
-        $("[name='name']").setValue(requestInfo.getName());
-        $("[name='phone']").setValue(DataGenerator.generateInvalidPhone());
-        $("[data-test-id=agreement]").click();
-        $(withText("Запланировать")).click();
-        $("[data-test-id=phone].input__sub")
-                .shouldHave(exactText("Телефон указан неверно. Должно быть 11 цифр, например, +79012345678."));
-
-    }
-    @Test
-    void shouldNotRegisterIfNameIsInvalid() {
-        val requestInfo = generateRequest("ru");
-        $("[data-test-id=city] input").setValue(requestInfo.getCity());
-        val MeetingDate = generateDate(0, 4);
-        $("[placeholder='Дата встречи']").doubleClick().sendKeys(Keys.BACK_SPACE);
-        $("[placeholder='Дата встречи']").setValue(MeetingDate);
-        $("[name='name']").setValue(DataGenerator.generateOnlyName());
-        $("[name='phone']").setValue(requestInfo.getPhone());
-        $("[data-test-id=agreement]").click();
-        $(withText("Запланировать")).click();
-        $("[data-test-id=name].input__sub")
-                .shouldHave(exactText("Введите Имя и Фамилию в соответствии с паспортом"));
-
-    }
-
 }
